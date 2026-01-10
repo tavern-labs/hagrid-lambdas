@@ -1,0 +1,2 @@
+# Dependencies for okta-provisioner function
+# Add required packages here (e.g., okta for Okta API)

@@ -1,0 +1,2 @@
+# Dependencies for event-handler function
+# Add required packages here (e.g., requests for HTTP calls)

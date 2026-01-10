@@ -1,0 +1,239 @@
+name: Deploy Lambda Functions
+
+on:
+  push:
+    branches:
+      - main
+
+# Required permissions for OIDC authentication
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # Detect which functions have changed
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      event-handler: ${{ steps.filter.outputs.event-handler }}
+      conversation-manager: ${{ steps.filter.outputs.conversation-manager }}
+      approval-manager: ${{ steps.filter.outputs.approval-manager }}
+      okta-provisioner: ${{ steps.filter.outputs.okta-provisioner }}
+      catalog-builder: ${{ steps.filter.outputs.catalog-builder }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            event-handler:
+              - 'functions/event-handler/**'
+            conversation-manager:
+              - 'functions/conversation-manager/**'
+            approval-manager:
+              - 'functions/approval-manager/**'
+            okta-provisioner:
+              - 'functions/okta-provisioner/**'
+            catalog-builder:
+              - 'functions/catalog-builder/**'
+
+  # Deploy event-handler function
+  deploy-event-handler:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.event-handler == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        working-directory: functions/event-handler
+        run: |
+          mkdir -p package
+          if [ -f requirements.txt ] && [ -s requirements.txt ]; then
+            pip install -r requirements.txt -t package/
+          fi
+          cp handler.py package/
+
+      - name: Create deployment package
+        working-directory: functions/event-handler
+        run: |
+          cd package
+          zip -r ../deployment.zip .
+
+      - name: Deploy to Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name hagrid-event-handler \
+            --zip-file fileb://functions/event-handler/deployment.zip
+
+  # Deploy conversation-manager function
+  deploy-conversation-manager:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.conversation-manager == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        working-directory: functions/conversation-manager
+        run: |
+          mkdir -p package
+          if [ -f requirements.txt ] && [ -s requirements.txt ]; then
+            pip install -r requirements.txt -t package/
+          fi
+          cp handler.py package/
+
+      - name: Create deployment package
+        working-directory: functions/conversation-manager
+        run: |
+          cd package
+          zip -r ../deployment.zip .
+
+      - name: Deploy to Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name hagrid-conversation-manager \
+            --zip-file fileb://functions/conversation-manager/deployment.zip
+
+  # Deploy approval-manager function
+  deploy-approval-manager:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.approval-manager == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        working-directory: functions/approval-manager
+        run: |
+          mkdir -p package
+          if [ -f requirements.txt ] && [ -s requirements.txt ]; then
+            pip install -r requirements.txt -t package/
+          fi
+          cp handler.py package/
+
+      - name: Create deployment package
+        working-directory: functions/approval-manager
+        run: |
+          cd package
+          zip -r ../deployment.zip .
+
+      - name: Deploy to Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name hagrid-approval-manager \
+            --zip-file fileb://functions/approval-manager/deployment.zip
+
+  # Deploy okta-provisioner function
+  deploy-okta-provisioner:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.okta-provisioner == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        working-directory: functions/okta-provisioner
+        run: |
+          mkdir -p package
+          if [ -f requirements.txt ] && [ -s requirements.txt ]; then
+            pip install -r requirements.txt -t package/
+          fi
+          cp handler.py package/
+
+      - name: Create deployment package
+        working-directory: functions/okta-provisioner
+        run: |
+          cd package
+          zip -r ../deployment.zip .
+
+      - name: Deploy to Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name hagrid-okta-provisioner \
+            --zip-file fileb://functions/okta-provisioner/deployment.zip
+
+  # Deploy catalog-builder function
+  deploy-catalog-builder:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.catalog-builder == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        working-directory: functions/catalog-builder
+        run: |
+          mkdir -p package
+          if [ -f requirements.txt ] && [ -s requirements.txt ]; then
+            pip install -r requirements.txt -t package/
+          fi
+          cp handler.py package/
+
+      - name: Create deployment package
+        working-directory: functions/catalog-builder
+        run: |
+          cd package
+          zip -r ../deployment.zip .
+
+      - name: Deploy to Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name hagrid-catalog-builder \
+            --zip-file fileb://functions/catalog-builder/deployment.zip

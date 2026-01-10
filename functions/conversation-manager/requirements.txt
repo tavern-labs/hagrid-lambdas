@@ -1,0 +1,2 @@
+# Dependencies for conversation-manager function
+# Add required packages here (e.g., anthropic, openai for AI processing)
