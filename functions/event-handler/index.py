@@ -1,6 +1,22 @@
 """
 Event Handler Lambda Function
-...existing docstring...
+Hagrid Event Handler Lambda
+
+Entry point for all Slack webhook events. Acts as a router - no business logic.
+
+Flow:
+1. Verify request authenticity (Slack signing secret)
+2. Identify event type (message, button click, URL verification)
+3. Route to appropriate Lambda (Conversation Manager, Approval Manager)
+4. Respond 200 immediately to Slack (required within 3 seconds)
+
+Event Types Handled:
+- url_verification: One-time handshake when configuring Slack app
+- message.im: Direct messages from users → Conversation Manager
+- block_actions: Button clicks from approval DMs → Approval Manager
+
+Environment Variables:
+- SLACK_SIGNING_SECRET_SSM: SSM parameter name for signing secret
 """
 
 import json
