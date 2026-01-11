@@ -49,6 +49,7 @@ To deploy changes:
 - **Code Signing**: Implement AWS Lambda code signing to ensure code integrity
 - **Artifact Verification**: Add checksum verification for deployment packages
 - **Runtime Secrets**: Pull sensitive credentials from AWS SSM Parameter Store or Secrets Manager at runtime (not environment variables)
+- **Lambda Layers**: Migrate to Terraform-managed Lambda layers for shared dependencies (requests, slack-sdk, etc.) to reduce deployment package sizes and improve consistency
 
 ### Future Considerations
 - **Multi-Account Strategy**: Separate AWS accounts for dev/staging/prod environments
