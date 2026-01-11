@@ -1,4 +1,6 @@
 import json
+import os
+import boto3
 import requests
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
@@ -226,13 +228,50 @@ def build_catalog_json(groups: List[Dict[str, Any]]) -> str:
     return json.dumps(catalog, indent=2)
 
 
+def get_okta_credentials() -> Dict[str, str]:
+    """
+    Fetch Okta credentials from AWS Systems Manager Parameter Store.
+
+    Returns:
+        Dict with 'domain' and 'api_token' keys
+
+    Raises:
+        Exception if parameter not found or invalid format
+    """
+    # Get parameter name from environment variable, default to /hagrid/okta/credentials
+    parameter_name = os.environ.get('OKTA_CREDENTIALS_SSM_NAME', '/hagrid/okta/credentials')
+
+    try:
+        ssm_client = boto3.client('ssm')
+        response = ssm_client.get_parameter(
+            Name=parameter_name,
+            WithDecryption=True  # Decrypt if it's a SecureString
+        )
+
+        # Parse JSON credentials
+        credentials = json.loads(response['Parameter']['Value'])
+
+        # Validate required fields
+        if 'domain' not in credentials or 'api_token' not in credentials:
+            raise ValueError("SSM parameter must contain 'domain' and 'api_token' fields")
+
+        return credentials
+
+    except Exception as e:
+        print(f"Error fetching Okta credentials from SSM parameter '{parameter_name}': {e}")
+        raise
+
+
 def lambda_handler(event, context):
     """AWS Lambda handler function - Using REST API"""
 
-    # HARDCODED FOR TESTING - DELETE AFTER TESTING!
-    okta_domain = 'integrator-2710704.okta.com'  # CHANGE THIS
-    okta_token = '00VB0hFQx1NlJO0mVpIj7PXaBhJOTW8suVU7bbi1vp'    # CHANGE THIS
-    group_prefix = 'app-'
+    # Fetch Okta credentials from SSM Parameter Store
+    credentials = get_okta_credentials()
+    okta_domain = credentials['domain']
+    okta_token = credentials['api_token']
+
+    # Group prefix can be configured via environment variable
+    group_prefix = os.environ.get('OKTA_GROUP_PREFIX', 'app-')
 
     try:
         # Fetch Okta groups
