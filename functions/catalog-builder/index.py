@@ -239,7 +239,7 @@ def get_okta_credentials() -> Dict[str, str]:
         Exception if parameter not found or invalid format
     """
     # Get parameter name from environment variable, default to /hagrid/okta/credentials
-    parameter_name = os.environ.get('OKTA_CREDENTIALS_PARAMETER', '/hagrid/okta/credentials')
+    parameter_name = os.environ.get('OKTA_CREDENTIALS_SSM_NAME', '/hagrid/okta/credentials')
 
     try:
         ssm_client = boto3.client('ssm')
