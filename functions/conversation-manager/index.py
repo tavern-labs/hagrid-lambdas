@@ -65,7 +65,7 @@ def get_okta_catalog():
     
     param_name = os.environ.get('OKTA_CATALOG_SSM', '/hagrid/okta-catalog')
     response = ssm.get_parameter(Name=param_name)
-    _okta_catalog = json.loads(response['Parameter']['Value'])
+    _okta_catalog = response['Parameter']['Value']  # Already a string
     return _okta_catalog
 
 
@@ -193,7 +193,7 @@ def call_ai(messages, catalog):
     
     # Build system context
     system_prompt = get_system_prompt()
-    catalog_context = f"\n\nAvailable applications and roles:\n{json.dumps(catalog, indent=2)}"
+    catalog_context = f"\n\nAvailable applications and roles:\n{catalog}"
     full_system = system_prompt + catalog_context
     
     # Convert messages to Gemini format
