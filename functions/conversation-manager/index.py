@@ -189,7 +189,7 @@ def call_ai(messages, catalog):
     Using Google Gemini (free tier: 1M tokens/day).
     """
     api_key = get_gemini_api_key()
-    url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}'
+    url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
     
     # Build system context
     system_prompt = get_system_prompt()
@@ -229,7 +229,10 @@ def call_ai(messages, catalog):
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode('utf-8'),
-            headers={'Content-Type': 'application/json'}
+            headers={
+                'Content-Type': 'application/json',
+                'X-goog-api-key': api_key
+            }
         )
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode('utf-8'))
