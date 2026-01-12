@@ -139,5 +139,5 @@ def lambda_handler(event, context):
                     'message_ts': event_data.get('ts')
                 })
             )
-        
-      return {'statusCode': 200, 'body': 'OK'}
+            
+    return {'statusCode': 200, 'body': 'OK'}
