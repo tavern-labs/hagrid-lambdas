@@ -115,29 +115,29 @@ def lambda_handler(event, context):
     
     # Event callbacks
     if body.get('type') == 'event_callback':
-            event_data = body.get('event', {})
-            event_type = event_data.get('type')
-            logger.info(f"Event type: {event_type}")
+        event_data = body.get('event', {})
+        event_type = event_data.get('type')
+        logger.info(f"Event type: {event_type}")
             
-            if event_type == 'message':
-                # Ignore bot messages
-                if event_data.get('bot_id') or event_data.get('subtype'):
-                    logger.info('Ignoring bot/subtype message')
-                    return {'statusCode': 200, 'body': 'OK'}
+        if event_type == 'message':
+            # Ignore bot messages
+            if event_data.get('bot_id') or event_data.get('subtype'):
+                logger.info('Ignoring bot/subtype message')
+                return {'statusCode': 200, 'body': 'OK'}
                 
-                logger.info(f"DM - User: {event_data.get('user')}, Text: {event_data.get('text')}")
+            logger.info(f"DM - User: {event_data.get('user')}, Text: {event_data.get('text')}")
                 
-                # Route to Conversation Manager
-                lambda_client = boto3.client('lambda')
-                lambda_client.invoke(
-                    FunctionName='hagrid-conversation-manager',
-                    InvocationType='Event',  # Async - don't wait
-                    Payload=json.dumps({
-                        'user_id': event_data.get('user'),
-                        'text': event_data.get('text', ''),
-                        'channel': event_data.get('channel'),
-                        'message_ts': event_data.get('ts')
-                    })
-                )
+            # Route to Conversation Manager
+            lambda_client = boto3.client('lambda')
+            lambda_client.invoke(
+                FunctionName='hagrid-conversation-manager',
+                InvocationType='Event',  # Async - don't wait
+                Payload=json.dumps({
+                    'user_id': event_data.get('user'),
+                    'text': event_data.get('text', ''),
+                    'channel': event_data.get('channel'),
+                    'message_ts': event_data.get('ts')
+                })
+            )
         
-        return {'statusCode': 200, 'body': 'OK'}
+      return {'statusCode': 200, 'body': 'OK'}
