@@ -66,6 +66,7 @@ def get_okta_catalog():
     param_name = os.environ.get('OKTA_CATALOG_SSM', '/hagrid/okta-catalog')
     response = ssm.get_parameter(Name=param_name)
     _okta_catalog = response['Parameter']['Value']  # Already a string
+    logger.info(f"Loaded catalog: {len(_okta_catalog)} chars")
     return _okta_catalog
 
 
@@ -195,6 +196,9 @@ def call_ai(messages, catalog):
     system_prompt = get_system_prompt()
     catalog_context = f"\n\nAvailable applications and roles:\n{catalog}"
     full_system = system_prompt + catalog_context
+    logger.info(f"System prompt length: {len(system_prompt)}")
+    logger.info(f"Catalog length: {len(catalog)}")
+    logger.info(f"Full system context length: {len(full_system)}")
     
     # Convert messages to Gemini format
     contents = []
