@@ -65,10 +65,21 @@ def get_okta_catalog():
         return _okta_catalog
     
     param_name = os.environ.get('OKTA_CATALOG_SSM', '/hagrid/okta-catalog')
-    response = ssm.get_parameter(Name=param_name)
-    _okta_catalog = response['Parameter']['Value']  # Already a string
-    logger.info(f"Loaded catalog: {len(_okta_catalog)} chars")
-    return _okta_catalog
+    
+    try:
+        # Added WithDecryption=True to handle SecureString parameters
+        response = ssm.get_parameter(Name=param_name, WithDecryption=True)
+        _okta_catalog = response['Parameter']['Value']
+        
+        # LOG A SNIPPET TO VERIFY (But don't log the whole secret!)
+        # This will help you see if # SERVICE_CATALOG_START is actually there
+        logger.info(f"Loaded catalog: {len(_okta_catalog)} chars. Starts with: {_okta_catalog[:50]}...")
+        
+        return _okta_catalog
+        
+    except Exception as e:
+        logger.error(f"Error fetching SSM parameter {param_name}: {e}")
+        return "" # Return empty so the bot uses the 'Unknown Request' logic
 
 
 def get_system_prompt():
