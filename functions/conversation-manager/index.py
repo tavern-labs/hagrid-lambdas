@@ -221,6 +221,8 @@ def call_ai(messages, catalog):
         'role': 'user',
         'parts': [{'text': grounded_text}]
     })
+
+    logger.info(f"DEBUG CATALOG CONTENT: {catalog_context}")
     
     payload = {
         "system_instruction": {
