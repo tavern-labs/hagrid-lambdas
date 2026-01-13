@@ -201,21 +201,31 @@ def call_ai(messages, catalog):
     logger.info(f"Catalog length: {len(catalog)}")
     logger.info(f"Full system context length: {len(full_system)}")
     
-    # Convert messages to Gemini format
+    # 1. Get the actual query the user just sent
+    user_query = messages[-1]['content']
+
+    # 2. Combine them into one "Grounded" message
+    grounded_text = f"{catalog_context}\n\nUser Request: {user_query}"
+
+    # 3. Add the historical messages
     contents = []
-    
-    # Add conversation history
-    for msg in messages:
+    for msg in messages[:-1]:  # All messages EXCEPT the last one
         role = 'user' if msg['role'] == 'user' else 'model'
         contents.append({
             'role': role,
             'parts': [{'text': msg['content']}]
         })
+
+    # 4. Push the NEW grounded message as the final 'user' turn
+    contents.append({
+        'role': 'user',
+        'parts': [{'text': grounded_text}]
+    })
     
     payload = {
         "system_instruction": {
         "parts": [
-            {"text": full_system}
+            {"text": system_prompt}
         ]
         },
         'contents': contents,
