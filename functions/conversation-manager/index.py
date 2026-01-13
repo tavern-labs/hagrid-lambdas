@@ -22,6 +22,7 @@ import os
 import boto3
 import urllib.request
 import urllib.error
+import re
 from datetime import datetime, timezone
 
 logger = logging.getLogger()
@@ -321,8 +322,11 @@ def lambda_handler(event, context):
         # Send response to user
         send_slack_message(channel, ai_response)
         
-        # TODO: Parse AI response for structured actions
-        # TODO: If AI detected complete access request, invoke Approval Manager
+        match = re.search(r'\[SUBMIT_REQUEST: app=(\w+), role=([\w-]+)\]', ai_response)
+        if match:
+            app = match.group(1)
+            role = match.group(2)
+            logger.info(f"Request confirmed - App: {app}, Role: {role}")
         
         return {
             'statusCode': 200,
