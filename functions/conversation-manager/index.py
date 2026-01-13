@@ -211,33 +211,33 @@ def call_ai(messages, catalog):
     logger.info(f"System prompt length: {len(system_prompt)}")
     logger.info(f"Catalog length: {len(catalog)}")
     
-    # 1. Get the actual query the user just sent
-    user_query = messages[-1]['content']
+    # # 1. Get the actual query the user just sent
+    # user_query = messages[-1]['content']
 
-    # 2. Combine them into one "Grounded" message
-    grounded_text = f"{catalog}\n\nUser Request: {user_query}"
+    # # 2. Combine them into one "Grounded" message
+    # grounded_text = f"{catalog}\n\nUser Request: {user_query}"
 
-    # 3. Add the historical messages
+    # # 3. Add the historical messages
     contents = []
-    for msg in messages[:-1]:  # All messages EXCEPT the last one
+    for msg in messages:  # All messages EXCEPT the last one
         role = 'user' if msg['role'] == 'user' else 'model'
         contents.append({
             'role': role,
             'parts': [{'text': msg['content']}]
         })
 
-    # 4. Push the NEW grounded message as the final 'user' turn
-    contents.append({
-        'role': 'user',
-        'parts': [{'text': grounded_text}]
-    })
+    # # 4. Push the NEW grounded message as the final 'user' turn
+    # contents.append({
+    #     'role': 'user',
+    #     'parts': [{'text': grounded_text}]
+    # })
 
     logger.info(f"DEBUG CATALOG CONTENT: {catalog}")
     
     payload = {
         "system_instruction": {
         "parts": [
-            {"text": system_prompt}
+            {"text": system_prompt + "\n" + catalog}
         ]
         },
         'contents': contents,
