@@ -35,6 +35,7 @@ _slack_bot_token = None
 _okta_catalog = None
 _system_prompt = None
 _gemini_api_key = None
+_processed_messages = set()
 
 # Table references
 conversations_table = dynamodb.Table(os.environ.get('CONVERSATIONS_TABLE', 'hagrid-conversations'))
@@ -263,7 +264,15 @@ def lambda_handler(event, context):
     }
     """
     logger.info(f"Received event: {json.dumps(event)}")
-    
+
+    # Deduplicate - prevent processing same message twice
+    message_ts = event.get('message_ts')
+    if message_ts:
+        if message_ts in _processed_messages:
+            logger.info(f"Skipping duplicate message: {message_ts}")
+            return {'statusCode': 200, 'body': 'Duplicate'}
+        _processed_messages.add(message_ts)   
+         
     try:
         # Extract message details
         user_id = event.get('user_id')
