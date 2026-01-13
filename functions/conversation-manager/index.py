@@ -197,7 +197,6 @@ def call_ai(messages, catalog):
     system_prompt = get_system_prompt()
     logger.info(f"System prompt length: {len(system_prompt)}")
     logger.info(f"Catalog length: {len(catalog)}")
-    logger.info(f"Full system context length: {len(full_system)}")
     
     # 1. Get the actual query the user just sent
     user_query = messages[-1]['content']
