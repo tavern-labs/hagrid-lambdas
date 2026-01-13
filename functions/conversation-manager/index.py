@@ -195,8 +195,6 @@ def call_ai(messages, catalog):
     
     # Build system context
     system_prompt = get_system_prompt()
-    catalog_context = f"\n\nAvailable applications and roles:\n{catalog}"
-    full_system = system_prompt + catalog_context
     logger.info(f"System prompt length: {len(system_prompt)}")
     logger.info(f"Catalog length: {len(catalog)}")
     logger.info(f"Full system context length: {len(full_system)}")
@@ -205,7 +203,7 @@ def call_ai(messages, catalog):
     user_query = messages[-1]['content']
 
     # 2. Combine them into one "Grounded" message
-    grounded_text = f"{catalog_context}\n\nUser Request: {user_query}"
+    grounded_text = f"{catalog}\n\nUser Request: {user_query}"
 
     # 3. Add the historical messages
     contents = []
@@ -222,7 +220,7 @@ def call_ai(messages, catalog):
         'parts': [{'text': grounded_text}]
     })
 
-    logger.info(f"DEBUG CATALOG CONTENT: {catalog_context}")
+    logger.info(f"DEBUG CATALOG CONTENT: {catalog}")
     
     payload = {
         "system_instruction": {
