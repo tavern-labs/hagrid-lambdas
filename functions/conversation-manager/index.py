@@ -220,8 +220,9 @@ def call_ai(messages, catalog):
         },
         'contents': contents,
         'generationConfig': {
-            'temperature': 0.1,
-            'maxOutputTokens': 500
+            'temperature': 0.0,
+            'maxOutputTokens': 500, 
+            'topP' : 0.1
         }
     }
     
