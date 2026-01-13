@@ -204,16 +204,6 @@ def call_ai(messages, catalog):
     # Convert messages to Gemini format
     contents = []
     
-    # Add system context as first user message (Gemini workaround)
-    contents.append({
-        'role': 'user',
-        'parts': [{'text': f"System instructions: {full_system}"}]
-    })
-    contents.append({
-        'role': 'model',
-        'parts': [{'text': 'Understood. I will help users request access to applications following these guidelines.'}]
-    })
-    
     # Add conversation history
     for msg in messages:
         role = 'user' if msg['role'] == 'user' else 'model'
@@ -223,9 +213,14 @@ def call_ai(messages, catalog):
         })
     
     payload = {
+        "system_instruction": {
+        "parts": [
+            {"text": full_system}
+        ]
+        },
         'contents': contents,
         'generationConfig': {
-            'temperature': 0.7,
+            'temperature': 0.1,
             'maxOutputTokens': 500
         }
     }
@@ -272,7 +267,7 @@ def lambda_handler(event, context):
             logger.info(f"Skipping duplicate message: {message_ts}")
             return {'statusCode': 200, 'body': 'Duplicate'}
         _processed_messages.add(message_ts)   
-         
+
     try:
         # Extract message details
         user_id = event.get('user_id')
