@@ -337,6 +337,7 @@ def lambda_handler(event, context):
                     'app': app,
                     'role': role
                 })
+            )
         
         return {
             'statusCode': 200,
