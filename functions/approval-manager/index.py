@@ -129,6 +129,22 @@ def get_approver_slack_id(email):
     
     return None
 
+def send_slack_api(method, payload):
+    """Universal helper to call any Slack API method."""
+    url = f'https://slack.com/api/{method}'
+    headers = {
+        'Authorization': f'Bearer {get_slack_bot_token()}',
+        'Content-Type': 'application/json'
+    }
+    try:
+        data = json.dumps(payload).encode('utf-8')
+        req = urllib.request.Request(url, data=data, headers=headers)
+        with urllib.request.urlopen(req) as response:
+            return json.loads(response.read().decode('utf-8'))
+    except Exception as e:
+        logger.error(f"Slack API Error ({method}): {e}")
+        return {'ok': False}
+
 
 def send_approval_dm(approver_slack_id, request_id, requester_email, app_name, role_name, role_description):
     """Send approval request DM with approve/deny buttons."""
@@ -163,71 +179,27 @@ def send_approval_dm(approver_slack_id, request_id, requester_email, app_name, r
         }
     ]
     
-    url = 'https://slack.com/api/chat.postMessage'
-    headers = {
-        'Authorization': f'Bearer {token}',
-        'Content-Type': 'application/json'
-    }
-    data = json.dumps({
+    payload = {
         'channel': approver_slack_id,
         'text': f'Access request from {requester_email} for {app_name} {role_name}',
         'blocks': blocks
-    }).encode('utf-8')
+    }
     
-    try:
-        req = urllib.request.Request(url, data=data, headers=headers)
-        with urllib.request.urlopen(req) as response:
-            result = json.loads(response.read().decode('utf-8'))
-            if result.get('ok'):
-                return result.get('ts')
-            else:
-                logger.error(f"Slack API error: {result.get('error')}")
-    except Exception as e:
-        logger.error(f"Error sending approval DM: {e}")
+    result = send_slack_api('chat.postMessage', payload)
+    return result.get('ts') if result.get('ok') else None
     
     return None
 
 
 def send_slack_message(channel, text):
     """Send a simple text message to Slack."""
-    token = get_slack_bot_token()
-    
-    url = 'https://slack.com/api/chat.postMessage'
-    headers = {
-        'Authorization': f'Bearer {token}',
-        'Content-Type': 'application/json'
-    }
-    data = json.dumps({
-        'channel': channel,
-        'text': text
-    }).encode('utf-8')
-    
-    try:
-        req = urllib.request.Request(url, data=data, headers=headers)
-        with urllib.request.urlopen(req) as response:
-            result = json.loads(response.read().decode('utf-8'))
-            return result.get('ok', False)
-    except Exception as e:
-        logger.error(f"Error sending message: {e}")
-        return False
+    result = send_slack_api('chat.postMessage', {'channel': channel, 'text': text})
+    return result.get('ok', False)
 
 
 def update_approval_message(response_url, text):
     """Update the original approval DM to show result."""
-    data = json.dumps({
-        'replace_original': 'true',
-        'text': text
-    }).encode('utf-8')
-    
-    try:
-        req = urllib.request.Request(
-            response_url,
-            data=data,
-            headers={'Content-Type': 'application/json'}
-        )
-        urllib.request.urlopen(req)
-    except Exception as e:
-        logger.error(f"Error updating approval message: {e}")
+    send_slack_api(None, {'replace_original': 'true', 'text': text}, url=response_url)
 
 
 # =============================================================================
@@ -336,6 +308,14 @@ def update_request_status(request_id, status, approver_email=None, action=None):
         logger.error(f"Error updating request status: {e}")
         return False
 
+def mark_message_as_handled(request_id, user_id):
+    """Updates the message audit table to show who interacted with it."""
+    approval_messages_table.update_item(
+        Key={'approval_message_id': request_id},
+        UpdateExpression="SET #s = :s, handled_by = :u",
+        ExpressionAttributeNames={'#s': 'status'},
+        ExpressionAttributeValues={':s': 'clicked', ':u': user_id}
+    )
 
 # =============================================================================
 # APPROVAL FLOW LOGIC
@@ -505,6 +485,8 @@ def handle_approval_response(user_id, action_id, request_id, response_url):
     if not approver_email:
         logger.error(f"Could not get email for approver: {user_id}")
         return
+
+    mark_message_as_handled(request_id, user_id)
     
     request = get_access_request(request_id)
     if not request:
@@ -539,6 +521,11 @@ def handle_approval_response(user_id, action_id, request_id, response_url):
     
     if result == 'approved':
         update_request_status(request_id, 'approved')
+
+        send_slack_api('chat.postMessage', {
+            'channel': request.get('user_id'),
+            'text': f"✅ Your request for *{request.get('app')} {request.get('role')}* was *approved* by <@{user_id}>."
+        })
         
         lambda_client.invoke(
             FunctionName='hagrid-okta-provisioner',
