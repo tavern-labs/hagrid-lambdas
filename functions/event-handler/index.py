@@ -78,82 +78,44 @@ def verify_slack_signature(event):
     
     return hmac.compare_digest(my_signature, signature)
 
-
-def lambda_handler(event, context):
-    """Main Lambda handler for Slack events."""
-    logger.info(f"Received event: {json.dumps(event)}")
-    
-    # Verify signature first
-    if not verify_slack_signature(event):
-        return {'statusCode': 401, 'body': 'Invalid signature'}
-    
-    body_raw = event.get('body', '{}')
-    content_type = event.get('headers', {}).get('content-type', '')
-    
-    # Handle interactive payloads (button clicks) - URL-encoded
-    if 'application/x-www-form-urlencoded' in content_type:
+def handle_interactivity(body_raw):
+    """Processes button clicks and routes to Approval Manager."""
+    try:
         parsed = parse_qs(body_raw)
-        payload = parsed.get('payload', ['{}'])[0]
-        logger.info(f"Interactive payload: {payload}")
+        payload = json.loads(parsed.get('payload', ['{}'])[0])
         
-        try:
-            interaction = json.loads(payload)
-            user_id = interaction.get('user', {}).get('id')
-            actions = interaction.get('actions', [])
-            response_url = interaction.get('response_url')
-            
-            if actions:
-                action = actions[0]
-                lambda_client.invoke(
-                    FunctionName='hagrid-approval-manager',
-                    InvocationType='Event',
-                    Payload=json.dumps({
-                        'type': 'approval_response',
-                        'user_id': user_id,
-                        'action_id': action.get('action_id'),
-                        'action_value': action.get('value'),
-                        'response_url': response_url
-                    })
-                )
-                
-            return {'statusCode': 200, 'body': 'OK'}
+        actions = payload.get('actions', [])
+        if actions:
+            lambda_client.invoke(
+                FunctionName='hagrid-approval-manager',
+                InvocationType='Event',
+                Payload=json.dumps({
+                    'type': 'approval_response',
+                    'user_id': payload.get('user', {}).get('id'),
+                    'action_id': actions[0].get('action_id'),
+                    'action_value': actions[0].get('value'),
+                    'response_url': payload.get('response_url')
+                })
+            )
+    except Exception as e:
+        logger.error(f"Interactivity error: {e}")
 
-        except Exception as e:
-            logger.error(f"Error parsing interactive payload: {e}")
-        
-        return {'statusCode': 200, 'body': ''}
-    
-    # Parse JSON body for standard events
+
+def handle_json_event(body_raw):
+    """Processes URL verification and DMs."""
     try:
         body = json.loads(body_raw)
-    except json.JSONDecodeError as e:
-        logger.error(f'Invalid JSON: {e}')
-        return {'statusCode': 200, 'body': 'OK'}
-    
-    # URL verification - return plain text challenge
+    except json.JSONDecodeError:
+        return {'statusCode': 200, 'body': 'Invalid JSON'}
+
+    # Handle Slack URL Challenge
     if body.get('type') == 'url_verification':
-        logger.info("URL verification challenge")
-        return {
-            'statusCode': 200,
-            'headers': {'Content-Type': 'text/plain'},
-            'body': body.get('challenge', '')
-        }
-    
-    # Event callbacks
+        return {'statusCode': 200, 'body': body.get('challenge')}
+
+    # Handle DM routing to Conversation Manager
     if body.get('type') == 'event_callback':
         event_data = body.get('event', {})
-        event_type = event_data.get('type')
-        logger.info(f"Event type: {event_type}")
-            
-        if event_type == 'message':
-            # Ignore bot messages
-            if event_data.get('bot_id') or event_data.get('subtype'):
-                logger.info('Ignoring bot/subtype message')
-                return {'statusCode': 200, 'body': 'OK'}
-                
-            logger.info(f"DM - User: {event_data.get('user')}, Text: {event_data.get('text')}")
-                
-            # Route to Conversation Manager
+        if event_data.get('type') == 'message' and not event_data.get('bot_id'):
             lambda_client.invoke(
                 FunctionName='hagrid-conversation-manager',
                 InvocationType='Event',
@@ -164,5 +126,21 @@ def lambda_handler(event, context):
                     'message_ts': event_data.get('ts')
                 })
             )
-            
-    return {'statusCode': 200, 'body': 'OK'}
+    return {'statusCode': 200, 'body': 'ok'}
+
+
+def lambda_handler(event, context):
+    if not verify_slack_signature(event):
+        return {'statusCode': 401, 'body': 'Invalid signature'}
+
+    body_raw = event.get('body', '')
+    headers = {k.lower(): v for k, v in event.get('headers', {}).items()}
+    content_type = headers.get('content-type', '')
+
+    # --- PATH A: Button Clicks (Form Data) ---
+    if 'application/x-www-form-urlencoded' in content_type:
+        handle_interactivity(body_raw)
+        return {'statusCode': 200, 'body': 'ok'}
+
+    # --- PATH B: Standard Events (JSON) ---
+    return handle_json_event(body_raw)
