@@ -129,20 +129,28 @@ def get_approver_slack_id(email):
     
     return None
 
-def send_slack_api(method, payload):
-    """Universal helper to call any Slack API method."""
-    url = f'https://slack.com/api/{method}'
-    headers = {
-        'Authorization': f'Bearer {get_slack_bot_token()}',
-        'Content-Type': 'application/json'
-    }
+def send_slack_api(method, payload, url=None):
+    """Universal helper. Uses method or specific URL and cached token."""
+    # Use provided URL (for updates) or build the standard one (for new messages)
+    api_url = url if url else f'https://slack.com/api/{method}'
+    
+    headers = {'Content-Type': 'application/json'}
+    
+    # Use cached token only for standard API calls
+    if not url:
+        headers['Authorization'] = f'Bearer {get_slack_bot_token()}'
+
     try:
         data = json.dumps(payload).encode('utf-8')
-        req = urllib.request.Request(url, data=data, headers=headers)
+        req = urllib.request.Request(api_url, data=data, headers=headers)
         with urllib.request.urlopen(req) as response:
-            return json.loads(response.read().decode('utf-8'))
+            res_body = response.read().decode('utf-8')
+            try:
+                return json.loads(res_body)
+            except:
+                return {'ok': res_body == 'ok'}
     except Exception as e:
-        logger.error(f"Slack API Error ({method}): {e}")
+        logger.error(f"Slack API Error: {e}")
         return {'ok': False}
 
 
