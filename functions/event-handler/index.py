@@ -33,6 +33,7 @@ logger.setLevel(logging.INFO)
 
 # Initialize outside handler for connection reuse
 ssm = boto3.client('ssm')
+lambda_client = boto3.client('lambda')
 _signing_secret = None
 
 
@@ -94,7 +95,29 @@ def lambda_handler(event, context):
         parsed = parse_qs(body_raw)
         payload = parsed.get('payload', ['{}'])[0]
         logger.info(f"Interactive payload: {payload}")
-        # TODO: Route to approval-manager
+        
+        try:
+            interaction = json.loads(payload)
+            user_id = interaction.get('user', {}).get('id')
+            actions = interaction.get('actions', [])
+            response_url = interaction.get('response_url')
+            
+            if actions:
+                action = actions[0]
+                lambda_client.invoke(
+                    FunctionName='hagrid-approval-manager',
+                    InvocationType='Event',
+                    Payload=json.dumps({
+                        'type': 'approval_response',
+                        'user_id': user_id,
+                        'action_id': action.get('action_id'),
+                        'action_value': action.get('value'),
+                        'response_url': response_url
+                    })
+                )
+        except Exception as e:
+            logger.error(f"Error parsing interactive payload: {e}")
+        
         return {'statusCode': 200, 'body': ''}
     
     # Parse JSON body for standard events
@@ -128,10 +151,9 @@ def lambda_handler(event, context):
             logger.info(f"DM - User: {event_data.get('user')}, Text: {event_data.get('text')}")
                 
             # Route to Conversation Manager
-            lambda_client = boto3.client('lambda')
             lambda_client.invoke(
                 FunctionName='hagrid-conversation-manager',
-                InvocationType='Event',  # Async - don't wait
+                InvocationType='Event',
                 Payload=json.dumps({
                     'user_id': event_data.get('user'),
                     'text': event_data.get('text', ''),

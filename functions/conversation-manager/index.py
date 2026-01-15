@@ -327,6 +327,16 @@ def lambda_handler(event, context):
             app = match.group(1)
             role = match.group(2)
             logger.info(f"Request confirmed - App: {app}, Role: {role}")
+            lambda_client.invoke(
+                FunctionName='hagrid-approval-manager',
+                InvocationType='Event',
+                Payload=json.dumps({
+                    'type': 'new_request',
+                    'user_id': user_id,
+                    'channel': channel,
+                    'app': app,
+                    'role': role
+                })
         
         return {
             'statusCode': 200,
