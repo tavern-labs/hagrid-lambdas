@@ -115,6 +115,9 @@ def lambda_handler(event, context):
                         'response_url': response_url
                     })
                 )
+                
+            return {'statusCode': 200, 'body': 'OK'}
+
         except Exception as e:
             logger.error(f"Error parsing interactive payload: {e}")
         
