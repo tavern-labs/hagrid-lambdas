@@ -442,7 +442,7 @@ def process_new_request(user_id, channel, app_name, role_name):
 
 
 def send_approval_requests(request_id, requester_email, app_name, role_name, role_config, approver_emails, channel):
-    """Send approval DMs to all required approvers."""
+    """Send approval DMs to all required approvers with combined IDs for efficient tracking."""
     description = role_config.get('description', '')
     sent_count = 0
     
@@ -453,17 +453,22 @@ def send_approval_requests(request_id, requester_email, app_name, role_name, rol
             logger.warning(f"Could not find Slack user for approver: {approver_email}")
             continue
         
+        # 1. Pre-generate the message ID to embed in the button
+        approval_message_id = str(uuid.uuid4())
+        combined_value = f"{request_id}:{approval_message_id}"
+        
+        # 2. Send DM with the combined value
         message_ts = send_approval_dm(
             approver_slack_id=approver_slack_id,
-            request_id=request_id,
+            request_id=combined_value,
             requester_email=requester_email,
             app_name=app_name,
             role_name=role_name,
             role_description=description
         )
         
+        # 3. Create the tracking record
         if message_ts:
-            approval_message_id = str(uuid.uuid4())
             create_approval_message(
                 approval_message_id=approval_message_id,
                 request_id=request_id,
@@ -484,17 +489,26 @@ def send_approval_requests(request_id, requester_email, app_name, role_name, rol
 # BUTTON CLICK HANDLER
 # =============================================================================
 
-def handle_approval_response(user_id, action_id, request_id, response_url):
+def handle_approval_response(user_id, action_id, combined_value, response_url):
     """
     Handle approver's button click (approve/deny).
-    Updates request status and checks if threshold met.
+    Splits combined_value to update specific message and request records.
     """
+    # 1. Split the combined string to get both specific IDs
+    request_id, approval_msg_id = combined_value.split(':')
+    
     approver_email = get_requester_email(user_id)
     if not approver_email:
         logger.error(f"Could not get email for approver: {user_id}")
         return
 
-    mark_message_as_handled(request_id, user_id)
+    # 2. Update the specific message record directly by its Primary Key
+    approval_messages_table.update_item(
+        Key={'approval_message_id': approval_msg_id},
+        UpdateExpression="SET #s = :s, handled_by = :u",
+        ExpressionAttributeNames={'#s': 'status'},
+        ExpressionAttributeValues={':s': 'clicked', ':u': user_id}
+    )
     
     request = get_access_request(request_id)
     if not request:
