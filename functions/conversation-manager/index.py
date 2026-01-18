@@ -30,6 +30,7 @@ logger.setLevel(logging.INFO)
 
 # Initialize clients outside handler
 ssm = boto3.client('ssm')
+s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
 lambda_client = boto3.client('lambda')
 
@@ -62,27 +63,25 @@ def get_slack_bot_token():
 
 
 def get_okta_catalog():
-    """Fetch and cache Okta app catalog (available apps/roles)."""
+    """Fetch and cache Okta app catalog from S3 (text format)."""
     global _okta_catalog
     if _okta_catalog:
         return _okta_catalog
-    
-    param_name = os.environ.get('OKTA_CATALOG_SSM', '/hagrid/okta-catalog')
-    
+
+    bucket = os.environ.get('CATALOG_S3_BUCKET')
+    key = 'catalog.txt'
+
     try:
-        # Added WithDecryption=True to handle SecureString parameters
-        response = ssm.get_parameter(Name=param_name, WithDecryption=True)
-        _okta_catalog = response['Parameter']['Value']
-        
-        # LOG A SNIPPET TO VERIFY (But don't log the whole secret!)
-        # This will help you see if # SERVICE_CATALOG_START is actually there
-        logger.info(f"Loaded catalog: {len(_okta_catalog)} chars. Starts with: {_okta_catalog[:50]}...")
-        
+        response = s3_client.get_object(Bucket=bucket, Key=key)
+        _okta_catalog = response['Body'].read().decode('utf-8')
+
+        logger.info(f"Loaded catalog from S3: {len(_okta_catalog)} chars. Starts with: {_okta_catalog[:50]}...")
+
         return _okta_catalog
-        
+
     except Exception as e:
-        logger.error(f"Error fetching SSM parameter {param_name}: {e}")
-        return "" # Return empty so the bot uses the 'Unknown Request' logic
+        logger.error(f"Error fetching catalog from S3 bucket {bucket}/{key}: {e}")
+        return ""  # Return empty so the bot uses the 'Unknown Request' logic
 
 
 def get_system_prompt():
