@@ -39,6 +39,7 @@ logger.setLevel(logging.INFO)
 
 # Initialize clients outside handler
 ssm = boto3.client('ssm')
+s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
 lambda_client = boto3.client('lambda')
 
@@ -68,15 +69,23 @@ def get_slack_bot_token():
 
 
 def get_okta_catalog_data():
-    """Fetch and cache Okta catalog JSON (full data with group IDs and approvers)."""
+    """Fetch and cache Okta catalog from S3 (JSON format with group IDs and approvers)."""
     global _okta_catalog_data
     if _okta_catalog_data:
         return _okta_catalog_data
-    
-    param_name = os.environ.get('OKTA_CATALOG_DATA_SSM', '/hagrid/okta-catalog-data')
-    response = ssm.get_parameter(Name=param_name)
-    _okta_catalog_data = json.loads(response['Parameter']['Value'])
-    return _okta_catalog_data
+
+    bucket = os.environ.get('CATALOG_S3_BUCKET')
+    key = 'catalog.json'
+
+    try:
+        response = s3_client.get_object(Bucket=bucket, Key=key)
+        content = response['Body'].read().decode('utf-8')
+        _okta_catalog_data = json.loads(content)
+        return _okta_catalog_data
+
+    except Exception as e:
+        logger.error(f"Error fetching catalog from S3 bucket {bucket}/{key}: {e}")
+        return {}
 
 
 def get_role_config(app_name, role_name):
