@@ -383,9 +383,14 @@ def process_new_request(user_id, channel, app_name, role_name):
     group_name = role_config.get('group_name')
     group_id = role_config.get('group_id')
     
-    # Determine required approvals based on type and logic
+# Determine required approvals based on type and logic
     if approval_type == 'NONE':
         required_approvals = 0
+    elif approval_type == 'MANUAL':
+        # Manual review - no automated approval flow
+        logger.info(f"Manual approval required for {app_name}/{role_name}")
+        send_slack_message(channel, f"The {role_name} role for {app_name} requires manual review. Please contact IT directly or submit a ticket.")
+        return None
     elif approval_type == 'MANAGER':
         # TODO: Look up user's manager from Okta/Slack
         required_approvals = 1
@@ -398,15 +403,16 @@ def process_new_request(user_id, channel, app_name, role_name):
         else:
             required_approvals = threshold if threshold > 0 else 1
         logger.warning("BOTH approval type not fully implemented - manager approval skipped")
-    elif approval_type in ('MANUAL', 'ACCOUNT_ID'):
-        # MANUAL and ACCOUNT_ID both use approver_emails list
+    elif approval_type == 'ACCOUNT_EMAIL':
+        # Designated approvers from email list
         if logic == 'ALL':
             required_approvals = len(approver_emails) if approver_emails else 1
         else:
             required_approvals = threshold if threshold > 0 else 1
     else:
-        logger.warning(f"Unknown approval type: {approval_type}, defaulting to MANUAL behavior")
-        required_approvals = threshold if threshold > 0 else 1
+        logger.warning(f"Unknown approval type: {approval_type}, defaulting to manual")
+        send_slack_message(channel, f"The {role_name} role for {app_name} requires manual review. Please contact IT directly.")
+        return None
     
     requester_email = get_requester_email(user_id)
     if not requester_email:
