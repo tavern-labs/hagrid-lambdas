@@ -125,14 +125,16 @@ def get_requester_email(user_id):
 def get_approver_slack_id(email):
     """Look up approver's Slack user ID from their email."""
     token = get_slack_bot_token()
-    url = f'https://slack.com/api/users.lookupByEmail?email={email}'
+    url = 'https://slack.com/api/users.list'
     
     try:
         req = urllib.request.Request(url, headers={'Authorization': f'Bearer {token}'})
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode('utf-8'))
             if result.get('ok'):
-                return result['user']['id']
+                for user in result.get('members', []):
+                    if user.get('profile', {}).get('email', '').lower() == email.lower():
+                        return user.get('id')
     except Exception as e:
         logger.error(f"Error looking up user by email: {e}")
     
